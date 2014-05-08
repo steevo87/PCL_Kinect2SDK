@@ -123,8 +123,10 @@ public:
 
 	void run ()
 	{
+		bool depthOnlyMode = true;
+
 		// create a new grabber for OpenNI devices
-		pcl::Microsoft2Grabber* my_interface = new pcl::Microsoft2Grabber();
+		pcl::Microsoft2Grabber* my_interface = new pcl::Microsoft2Grabber(0, depthOnlyMode);
 
 		// make callback function from member function
 		boost::function<void (const boost::shared_ptr<const pcl::PointCloud<pcl::PointXYZRGBA> >&)> f =
