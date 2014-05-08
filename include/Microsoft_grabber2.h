@@ -89,7 +89,7 @@ namespace pcl
 		typedef void (sig_cb_microsoft_point_cloud_rgb) (const boost::shared_ptr<const pcl::PointCloud<pcl::PointXYZRGB> >&);
 		typedef void (sig_cb_microsoft_point_cloud_i) (const boost::shared_ptr<const pcl::PointCloud<pcl::PointXYZI> >&);*/
 
-		Microsoft2Grabber (const int instance = 0);
+		Microsoft2Grabber (const int instance = 0, bool depthOnly = false);
 		//const Mode& depth_mode = OpenNI_Default_Mode,
 		//const Mode& image_mode = OpenNI_Default_Mode);
 
@@ -125,6 +125,8 @@ namespace pcl
 		bool CameraSettingsSupported;
 
 		void GetPointCloudFromData(const boost::shared_ptr<cv::Mat> &img, const MatDepth &depth, boost::shared_ptr<PointCloud<PointXYZRGBA>> &cloud, bool alignToColor, bool preregistered) const;
+
+		void GetPointCloudFromColorlessData(const MatDepth &depth, boost::shared_ptr<PointCloud<PointXYZRGBA>> &cloud, bool alignToColor, bool preregistered) const;
 
 		//These should not be called except within the thread by the KinectCapture class process manager
 		void ProcessThreadInternal();
@@ -180,15 +182,17 @@ namespace pcl
 
 		void Release();
 		void GetNextFrame();
-		void FrameArrived(IMultiSourceFrameArrivedEventArgs *pArgs);
+		void FrameArrived(IMultiSourceFrameArrivedEventArgs *pArgs, bool depthOnly = false);
 		void DepthFrameArrived(IDepthFrameReference* pDepthFrameReference);
 		void ColorFrameArrived(IColorFrameReference* pColorFrameReference);
 		void BodyIndexFrameArrived(IBodyIndexFrameReference* pBodyIndexFrameReference);
 		bool GetCameraSettings();
 
 		void imageDepthImageCallback(const boost::shared_ptr<cv::Mat> &image, const MatDepth &depth_image);
+		void imageDepthOnlyImageCallback(const MatDepth &depth_image);
 		boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA> > convertToXYZRGBAPointCloud (const boost::shared_ptr<cv::Mat> &image,
 			const MatDepth &depth_image) const;
+		boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA> > convertToXYZRGBAPointCloud (const MatDepth &depth_image) const;
 		/** \brief Convert a Depth + RGB image pair to a pcl::PointCloud<PointT>
 		* \param[in] image the RGB image to convert
 		* \param[in] depth_image the depth image to convert

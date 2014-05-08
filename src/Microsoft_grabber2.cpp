@@ -46,7 +46,7 @@ template <typename T> inline T Clamp(T a, T minn, T maxx)
 { return (a < minn) ? minn : ( (a > maxx) ? maxx : a ); }
 
 namespace pcl {
-	Microsoft2Grabber::Microsoft2Grabber(const int instance) {
+	Microsoft2Grabber::Microsoft2Grabber(const int instance, bool depthOnly) {
 		HRESULT hr;
 		int num = 0;
 		m_person = m_depthStarted = m_videoStarted = m_audioStarted = m_infraredStarted = false;
@@ -63,9 +63,17 @@ namespace pcl {
 			hr = m_pKinectSensor->get_CoordinateMapper(&m_pCoordinateMapper);
 			hr = m_pKinectSensor->Open();
 			if (SUCCEEDED(hr)) {
-				hr = m_pKinectSensor->OpenMultiSourceFrameReader(
-					FrameSourceTypes::FrameSourceTypes_Depth | FrameSourceTypes::FrameSourceTypes_Color | FrameSourceTypes::FrameSourceTypes_BodyIndex,
-					&m_pMultiSourceFrameReader);
+				
+				if (depthOnly) {
+					hr = m_pKinectSensor->OpenMultiSourceFrameReader(
+						FrameSourceTypes::FrameSourceTypes_Depth, // | FrameSourceTypes::FrameSourceTypes_Color | FrameSourceTypes::FrameSourceTypes_BodyIndex,
+						&m_pMultiSourceFrameReader);
+				} else {
+					hr = m_pKinectSensor->OpenMultiSourceFrameReader(
+						FrameSourceTypes::FrameSourceTypes_Depth | FrameSourceTypes::FrameSourceTypes_Color | FrameSourceTypes::FrameSourceTypes_BodyIndex,
+						&m_pMultiSourceFrameReader);
+				}
+
 				if (SUCCEEDED(hr))
 				{
 					m_videoStarted = m_depthStarted = true;
@@ -94,7 +102,9 @@ namespace pcl {
 		point_cloud_i_signal_  = createSignal<sig_cb_microsoft_point_cloud_i> ();
 		point_cloud_rgb_signal_   = createSignal<sig_cb_microsoft_point_cloud_rgb> ();
 		*/ 
-		rgb_sync_.addCallback (boost::bind (&Microsoft2Grabber::imageDepthImageCallback, this, _1, _2));
+		if (!depthOnly) {
+			rgb_sync_.addCallback (boost::bind (&Microsoft2Grabber::imageDepthImageCallback, this, _1, _2));
+		}
 	}
 
 	void Microsoft2Grabber::start() {
@@ -256,7 +266,7 @@ namespace pcl {
 		SafeRelease(pBodyIndexFrame);
 	}
 
-	void Microsoft2Grabber::FrameArrived(IMultiSourceFrameArrivedEventArgs *pArgs) {
+	void Microsoft2Grabber::FrameArrived(IMultiSourceFrameArrivedEventArgs *pArgs, bool depthOnly) {
 		HRESULT hr;
 		IMultiSourceFrameReference *pFrameReference = nullptr;
 
@@ -277,16 +287,17 @@ namespace pcl {
 				DepthFrameArrived(pDepthFrameReference);
 			SafeRelease(pDepthFrameReference);
 
+			if (!depthOnly) {
+				hr = pFrame->get_ColorFrameReference(&pColorFrameReference);
+				if (SUCCEEDED(hr))
+					ColorFrameArrived(pColorFrameReference);
+				SafeRelease(pColorFrameReference);
 
-			hr = pFrame->get_ColorFrameReference(&pColorFrameReference);
-			if (SUCCEEDED(hr))
-				ColorFrameArrived(pColorFrameReference);
-			SafeRelease(pColorFrameReference);
-
-			hr = pFrame->get_BodyIndexFrameReference(&pBodyIndexFrameReference);
-			if (SUCCEEDED(hr))
-				BodyIndexFrameArrived(pBodyIndexFrameReference);
-			SafeRelease(pBodyIndexFrameReference);
+				hr = pFrame->get_BodyIndexFrameReference(&pBodyIndexFrameReference);
+				if (SUCCEEDED(hr))
+					BodyIndexFrameArrived(pBodyIndexFrameReference);
+				SafeRelease(pBodyIndexFrameReference);
+			}
 
 			pFrameReference->Release();
 		}
@@ -347,8 +358,11 @@ namespace pcl {
 					//cout << "img signal num slot!" << endl;
 					image_signal_->operator()(img);
 				}
-				if (num_slots<sig_cb_microsoft_point_cloud_rgba>() > 0 || all_data_signal_->num_slots() > 0 || image_depth_image_signal_->num_slots() > 0)
+
+				if (num_slots<sig_cb_microsoft_point_cloud_rgba>() > 0 || all_data_signal_->num_slots() > 0 || image_depth_image_signal_->num_slots() > 0) {
 					rgb_sync_.add0 (img, m_rgbTime);
+				}
+				
 				//ReleaseMutex(hColorMutex);
 			}
 		}
@@ -362,6 +376,7 @@ namespace pcl {
 	void Microsoft2Grabber::DepthFrameArrived(IDepthFrameReference* pDepthFrameReference) {
 		IDepthFrame* pDepthFrame = NULL;
 		HRESULT hr = pDepthFrameReference->AcquireFrame(&pDepthFrame);
+		//HRESULT hr = pDepthFrameReference->AcquireLatestFrame(&pDepthFrame);
 		if(FAILED(hr))
 			return;
 		//cout << "got a depth frame" << endl;
@@ -391,8 +406,11 @@ namespace pcl {
 			if (depth_image_signal_->num_slots () > 0) {
 				depth_image_signal_->operator()(depth_img);
 			}
-			if (num_slots<sig_cb_microsoft_point_cloud_rgba>() > 0 || all_data_signal_->num_slots() > 0 || image_depth_image_signal_->num_slots() > 0)
-				rgb_sync_.add1 (depth_img, m_depthTime);
+			if (num_slots<sig_cb_microsoft_point_cloud_rgba>() > 0 || all_data_signal_->num_slots() > 0 || image_depth_image_signal_->num_slots() > 0) {
+				//rgb_sync_.add1 (depth_img, m_depthTime);
+				imageDepthOnlyImageCallback(depth_img);
+			}
+			
 			//ReleaseMutex(hDepthMutex);
 		}
 		SafeRelease(pDepthFrameDescription);
@@ -419,6 +437,27 @@ namespace pcl {
 			float constant = 1.0f;
 			image_depth_image_signal_->operator()(image,depth_image,constant);
 		}
+	}
+
+	void Microsoft2Grabber::imageDepthOnlyImageCallback (const MatDepth &depth_image)
+	{
+		boost::shared_ptr<PointCloud<PointXYZRGBA>> cloud;
+		// check if we have color point cloud slots
+		if(point_cloud_rgba_signal_->num_slots() > 0 || all_data_signal_->num_slots() > 0)
+			cloud = convertToXYZRGBAPointCloud(depth_image);
+		if (point_cloud_rgba_signal_->num_slots () > 0)
+			point_cloud_rgba_signal_->operator()(cloud);
+		if(all_data_signal_->num_slots() > 0) {
+			//boost::shared_ptr<KinectData> data (new KinectData(image,depth_image,*cloud));
+			//all_data_signal_->operator()(data);
+		}
+
+		/*
+		if(image_depth_image_signal_->num_slots() > 0) {
+			float constant = 1.0f;
+			image_depth_image_signal_->operator()(image,depth_image,constant);
+		}
+		*/
 	}
 
 	void Microsoft2Grabber::GetPointCloudFromData(const boost::shared_ptr<Mat> &img, const MatDepth &depth, boost::shared_ptr<PointCloud<PointXYZRGBA>> &cloud, bool alignToColor, bool preregistered) const
@@ -482,6 +521,67 @@ namespace pcl {
 		img->release();
 	}
 
+	void Microsoft2Grabber::GetPointCloudFromColorlessData(const MatDepth &depth, boost::shared_ptr<PointCloud<PointXYZRGBA>> &cloud, bool alignToColor, bool preregistered) const
+	{
+		if(depth.empty()) {
+			cout << "empty depth" << endl;
+			return;
+		}
+
+		UINT16 *pDepth = (UINT16*)depth.data;
+		int length = cDepthHeight * cDepthWidth, length2;
+		HRESULT hr;
+		if(alignToColor) {
+			length2 = cColorHeight * cColorWidth;
+			hr = m_pCoordinateMapper->MapColorFrameToCameraSpace(length,pDepth,length2,m_pCameraSpacePoints);
+			if(FAILED(hr))
+				throw exception("Couldn't map to camera!");
+		} else {
+			hr = m_pCoordinateMapper->MapDepthFrameToCameraSpace(length,pDepth,length,m_pCameraSpacePoints);
+			if(FAILED(hr))
+				throw exception("Couldn't map to camera!");
+			hr = m_pCoordinateMapper->MapCameraPointsToColorSpace(length,m_pCameraSpacePoints,length,m_pColorCoordinates);
+			if(FAILED(hr))
+				throw exception("Couldn't map color!");
+		}
+
+		PointCloud<PointXYZRGBA>::iterator pCloud = cloud->begin();
+		ColorSpacePoint *pColor = m_pColorCoordinates;
+		CameraSpacePoint *pCamera = m_pCameraSpacePoints;
+		float bad_point = std::numeric_limits<float>::quiet_NaN ();
+		int x,y, safeWidth = cColorWidth - 1, safeHeight = cColorHeight - 1;
+		int width = alignToColor ? cColorWidth : cDepthWidth;
+		int height = alignToColor ? cColorHeight : cDepthHeight;
+		for(int j = 0; j < height; j++) {
+			for(int i = 0; i < width; i++) {
+				PointXYZRGBA loc;
+				Vec4b color;
+				if(!preregistered && !alignToColor) {
+					x = Clamp<int>(int(pColor->X),0,safeWidth);
+					y = Clamp<int>(int(pColor->Y),0,safeHeight);
+					//int index = y * cColorHeight + x;
+					color = Vec4b(255,255,255,255); // img->at<Vec4b>(y,x);
+				} else
+					color = Vec4b(255,255,255,255); // img->at<Vec4b>(j,i);
+				loc.b = color[0];
+				loc.g = color[1];
+				loc.r = color[2];
+				loc.a = 255;
+				if(pCamera->Z == 0) {
+					loc.x = loc.y = loc.z = bad_point;
+				} else {
+					loc.x = pCamera->X;
+					loc.y = pCamera->Y;
+					loc.z = pCamera->Z;
+				}
+				//cout << "Iter: " << i << ", " << j << endl;
+				*pCloud = loc;
+				++pCamera; ++pCloud; ++pColor;
+			}
+		}
+		//img->release();
+	}
+
 	boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA>> Microsoft2Grabber::convertToXYZRGBAPointCloud (const boost::shared_ptr<cv::Mat> &image,
 		const MatDepth &depth_image) const {
 			boost::shared_ptr<PointCloud<PointXYZRGBA> > cloud (new PointCloud<PointXYZRGBA>);
@@ -492,6 +592,23 @@ namespace pcl {
 			cloud->is_dense = false;
 			cloud->points.resize (cloud->height * cloud->width);
 			GetPointCloudFromData(image,depth_image,cloud,m_largeCloud,false);
+			cloud->sensor_origin_.setZero ();
+			cloud->sensor_orientation_.w () = 1.0;
+			cloud->sensor_orientation_.x () = 0.0;
+			cloud->sensor_orientation_.y () = 0.0;
+			cloud->sensor_orientation_.z () = 0.0;
+			return (cloud);
+	}
+
+	boost::shared_ptr<pcl::PointCloud<pcl::PointXYZRGBA>> Microsoft2Grabber::convertToXYZRGBAPointCloud (const MatDepth &depth_image) const {
+			boost::shared_ptr<PointCloud<PointXYZRGBA> > cloud (new PointCloud<PointXYZRGBA>);
+
+			cloud->header.frame_id =  "/microsoft_rgb_optical_frame";
+			cloud->height = m_largeCloud ? cColorHeight : cDepthHeight;
+			cloud->width = m_largeCloud ? cColorWidth : cDepthWidth;
+			cloud->is_dense = false;
+			cloud->points.resize (cloud->height * cloud->width);
+			GetPointCloudFromColorlessData(depth_image,cloud,m_largeCloud,false);
 			cloud->sensor_origin_.setZero ();
 			cloud->sensor_orientation_.w () = 1.0;
 			cloud->sensor_orientation_.x () = 0.0;
