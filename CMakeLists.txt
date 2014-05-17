@@ -17,11 +17,13 @@ find_package( OpenCV REQUIRED )
 
 add_subdirectory(src)
 
+# THESE THREE ARE THE CORRECT ADDRESSES FOR THE UR10 PC, AND YOU MIGHT NEED TO USE THEM TO OVERWRITE THE AUTOMATIC VALUES
 set(OPENNI_LIBRARY "C:/Program Files/OpenNI/Lib64/OpenNI64.lib")
 set(OpenCV_DIR "C:/Users/ur10/Downloads/opencv/build")
 set(PCL_DIR "C:/Users/ur10/Downloads/Repositories/pcl-trunk/build64")
-set(KinectSDK_INCLUDE "C:/Program Files/Microsoft SDKs/Kinect/v2.0-DevPreview1404/inc" CACHE PATH "Include directory for Kinect2 SDK")
-set(KinectSDK_LIB "C:/Program Files/Microsoft SDKs/Kinect/v2.0-DevPreview1404/lib/x64" CACHE PATH "Library directory for Kinect2 SDK")
+
+set(KinectSDK_INCLUDE "$ENV{KINECTSDK20_DIR}inc" CACHE PATH "Include directory for Kinect2 SDK")
+set(KinectSDK_LIB "$ENV{KINECTSDK20_DIR}lib/x64" CACHE PATH "Library directory for Kinect2 SDK")
 
 
 include_directories(${OpenCV_DIR})
