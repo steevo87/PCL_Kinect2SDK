@@ -102,6 +102,15 @@ add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_i
 add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PCL_DIR}/bin/pcl_io_debug.dll" $<TARGET_FILE_DIR:Test_SDK>)
 add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PCL_DIR}/bin/pcl_io_ply_debug.dll" $<TARGET_FILE_DIR:Test_SDK>)
 
+add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PCL_DIR}/bin/pcl_common_release.dll" $<TARGET_FILE_DIR:Test_SDK>)
+add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PCL_DIR}/bin/pcl_features_release.dll" $<TARGET_FILE_DIR:Test_SDK>)
+add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PCL_DIR}/bin/pcl_search_release.dll" $<TARGET_FILE_DIR:Test_SDK>)
+add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PCL_DIR}/bin/pcl_visualization_release.dll" $<TARGET_FILE_DIR:Test_SDK>)
+add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PCL_DIR}/bin/pcl_octree_release.dll" $<TARGET_FILE_DIR:Test_SDK>)
+add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PCL_DIR}/bin/pcl_kdtree_release.dll" $<TARGET_FILE_DIR:Test_SDK>)
+add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PCL_DIR}/bin/pcl_io_release.dll" $<TARGET_FILE_DIR:Test_SDK>)
+add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PCL_DIR}/bin/pcl_io_ply_release.dll" $<TARGET_FILE_DIR:Test_SDK>)
+
 IF(EXISTS "${OpenCV_BIN_DIR_OPT}/opencv_core${OPENCV_VER}.dll")
 	add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${OpenCV_BIN_DIR_OPT}/opencv_core${OPENCV_VER}.dll" $<TARGET_FILE_DIR:Test_SDK>)
 ENDIF()
