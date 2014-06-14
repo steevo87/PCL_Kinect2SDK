@@ -116,7 +116,7 @@ IF(EXISTS "${PCL_DIR}/bin/pcl_common_release.dll")
 	add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PCL_DIR}/bin/pcl_io_release.dll" $<TARGET_FILE_DIR:Test_SDK>)
 	add_custom_command(TARGET Test_SDK POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PCL_DIR}/bin/pcl_io_ply_release.dll" $<TARGET_FILE_DIR:Test_SDK>)
 ELSE()
-	MESSAGE(WARNING "Could not find PCL Debug libraries - has PCL been built in Debug mode?")
+	MESSAGE(WARNING "Could not find PCL Release libraries - has PCL been built in Release mode?")
 ENDIF()
 
 IF(EXISTS "${OpenCV_BIN_DIR_OPT}/opencv_core${OPENCV_VER}.dll")
